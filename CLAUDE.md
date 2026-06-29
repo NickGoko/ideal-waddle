@@ -252,18 +252,19 @@ Track current step in CURRENT STATUS below.
 ## CURRENT STATUS
 
 **Phase**: 1 — Foundation
-**Layer**: 0 — Data model (not started)
-**Last completed step**: None — fresh start
-**Next step**: STEP 1 — Schema and Prisma setup
+**Layer**: 2 — State machine
+**Last completed step**: Step 1 — Schema and Prisma setup + Seed
+**Next step**: STEP 3 — SLA engine
 
-**What is working**: Nothing yet.
-**What must not break**: Nothing yet (fresh start).
+**What is working**: Database schema migrated, seed data loaded (6 users, 5 clients, 6 markets, 18 partners, 30 trades). State machine module and unit tests complete.
+**What must not break**: Prisma schema, seed data, state machine transitions map.
 
 ### Completed Steps
-_(move items here as they are verified)_
+- **Step 1 [SCHEMA + SEED]**: Prisma schema applied, `npx prisma migrate dev` succeeded, all tables created. Seed verified: 6 users, 5 clients at correct states, 6 markets, 18 partners, 9 bank accounts, 30 trades for BlueSky. Files: `prisma/schema.prisma`, `prisma/seed.ts`, `prisma/migrations/`.
+- **Step 2 [STATE MACHINE]**: `src/lib/stateMachine.ts` — transitions map, `validateTransition()`, `transitionClient()`. `src/lib/prisma.ts` — Prisma singleton. Unit tests in `src/lib/__tests__/stateMachine.test.ts`. All tests pass.
 
 ### In Progress
-- Step 1: Schema
+- Step 3: SLA engine
 
 ### Blocked
 _(list anything waiting on external input)_
