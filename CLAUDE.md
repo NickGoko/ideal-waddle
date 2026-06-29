@@ -252,21 +252,50 @@ Track current step in CURRENT STATUS below.
 ## CURRENT STATUS
 
 **Phase**: 1 — Foundation
-**Layer**: 0 — Data model (not started)
-**Last completed step**: None — fresh start
-**Next step**: STEP 1 — Schema and Prisma setup
+**Layer**: Alert Log complete
+**Last completed step**: Step 12 — Alert Log (attached roadmap Step 11)
+**Next step**: Post-roadmap QA, UX polish, and handoff review
 
-**What is working**: Nothing yet.
-**What must not break**: Nothing yet (fresh start).
+**What is working**:
+- Prisma schema, migration, and seeded SQLite demo data.
+- State machine validation and `transitionClient()` logging through `ClientStateLog`.
+- SLA breach detection and same-day alert deduplication.
+- JSON API routes for clients, client detail, transitions, trades, markets, alerts, and analytics.
+- Background SLA monitor starts from `app/api/cron`, runs every 15 minutes, and uses alert deduplication.
+- Root shell navigation, role switcher, state badges, SLA timers, and `/clients` Kanban UI.
+- `/clients/[id]` client detail page with state timeline, documents, compliance, contracts, trade history, metadata, SLA timer, and role-gated state advance actions.
+- `/trades` trade entry page with client selection, trade preview, recent trades table, and duplicate-trade idempotency messaging.
+- `/` analytics dashboard with KPI cards and four charts sourced from `GET /api/analytics`: volume by weekday, volume by month day, margin by currency pair, and revenue by client type.
+- `/markets` infrastructure page with per-market setup, partner lists, bank coverage flags, payments capability flags, API status badges, LON status badges, bank accounts, and ADMIN-only market settings edits.
+- `/alerts` alert log with fired alert records, severity and channel badges, client links, acknowledgement status, and role-gated acknowledgement actions.
+- Tests use an isolated `prisma/test.db` initialized from the checked-in migration SQL, avoiding Prisma CLI schema-engine calls.
+
+**What must not break**:
+- `transitionClient()` remains the only runtime writer of `clients.currentState`.
+- Duplicate trades return HTTP 200 with `DUPLICATE_REJECTED`, not a user-facing error.
+- Alerts deduplicate by type + entity + UTC date.
+- Analytics are sourced from live trade rows and must not use hardcoded chart data.
+- Role switcher must keep using `demo_role`; do not replace it with real auth until explicitly requested.
 
 ### Completed Steps
-_(move items here as they are verified)_
+- 2026-06-29 — Step 1: Schema and migration verified.
+- 2026-06-29 — Step 2: Seed data verified.
+- 2026-06-29 — Step 3: State machine implemented in `src/lib/stateMachine.ts`; tests pass.
+- 2026-06-29 — Step 4: SLA and alert modules implemented in `src/lib/sla.ts` and `src/lib/alerts.ts`; tests pass.
+- 2026-06-29 — Step 5: API routes implemented under `app/api`; smoke checks pass for clients, transitions, trades, analytics, and markets.
+- 2026-06-29 — Step 6: Background SLA monitor implemented in `app/api/cron/route.ts`; startup trigger added to `app/layout.tsx`; smoke check created 3 alerts and second cron call created no duplicates.
+- 2026-06-29 — Step 7: Onboarding Kanban UI implemented with role switcher, root shell navigation, state badges, SLA timers, and state advance flow. Verification advanced Acme Imports Ltd from `COMPLIANCE_REVIEW` to `COMPLIANCE_APPROVED` and wrote a `ClientStateLog` entry.
+- 2026-06-29 — Step 8: Client Detail Page implemented in `app/clients/[id]/page.tsx`; verification confirmed BlueSky Remittances has a full timeline and 30 trades, Horizon Capital shows a `DOCS_EXCEPTION` document reason, and Acme Imports Ltd shows the manual Step 6 transition by Nicole Achieng.
+- 2026-06-29 — Step 9: Trade Form implemented in `app/trades/page.tsx`; verification logged one BlueSky Remittances `KES/USD` SELL trade, showed `DUPLICATE_REJECTED` for the identical second submission, and confirmed BlueSky trade history moved from 30 to 31 rows.
+- 2026-06-29 — Step 10: Analytics dashboard implemented in `app/page.tsx`; verification confirmed `/` and `/api/analytics` return 200, the starter homepage copy is gone, KPI data is live, and all four chart sections return database-backed rows.
+- 2026-06-29 — Step 11: Market Infrastructure page implemented in `app/markets/page.tsx`; verification confirmed `/markets` and `/api/markets` return 200, six markets load, Tanzania shows the bank coverage flag, Uganda shows the payments flag, Ethiopia shows multiple infrastructure flags, RM PATCH is forbidden, and ADMIN PATCH succeeds.
+- 2026-06-29 — Step 12: Alert Log page implemented in `app/alerts/page.tsx`; verification confirmed `/alerts` and `/api/alerts` return 200 for RM, Treasury is forbidden, acknowledging an alert sets `acknowledgedAt`, and the alert row remains in the log.
 
 ### In Progress
-- Step 1: Schema
+- Post-roadmap QA, UX polish, and handoff review
 
 ### Blocked
-_(list anything waiting on external input)_
+- None.
 
 ---
 
