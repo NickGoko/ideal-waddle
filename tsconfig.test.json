@@ -1,0 +1,11 @@
+{
+  "//": "Used only by `npm test` (ts-node). Forces CommonJS + node resolution so ts-node",
+  "//2": "can run the *.test.ts files; the base tsconfig targets the Next.js bundler.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "incremental": false
+  }
+}

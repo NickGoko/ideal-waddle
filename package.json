@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "ts-node -P tsconfig.test.json src/lib/stateMachine.test.ts && ts-node -P tsconfig.test.json src/lib/sla.test.ts && ts-node -P tsconfig.test.json src/lib/alerts.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
