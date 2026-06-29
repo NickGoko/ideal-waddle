@@ -220,7 +220,7 @@ model Alert {
   resolvedAt       DateTime?
 
   recipient User?   @relation(fields: [recipientId], references: [id])
-  client    Client? @relation(fields: [entityId], references: [id], map: "alert_client_fk")
+  client    Client? @relation(fields: [entityId], references: [id])
 
   @@map("alerts")
 }
