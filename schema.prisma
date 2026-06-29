@@ -1,0 +1,286 @@
+// prisma/schema.prisma
+// Payments Onboarding and Intelligence Platform (POIP)
+// Source of truth for all database tables
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS (SQLite does not enforce enums, but Prisma validates them) ──────────
+
+// ─── USERS ────────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  role      String   // RM | COMPLIANCE | LEGAL | ADMIN | TREASURY
+  market    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  clients           Client[]        @relation("RMClients")
+  complianceReviews ComplianceReview[]
+  stateLogEntries   ClientStateLog[]
+  alerts            Alert[]
+
+  @@map("users")
+}
+
+// ─── CLIENTS ──────────────────────────────────────────────────────────────────
+
+model Client {
+  id             String   @id @default(cuid())
+  name           String
+  type           String   // FI | NON_FI | CORPORATE | INDIVIDUAL
+  currentState   String   @default("LEAD_RECEIVED")
+  stateEnteredAt DateTime @default(now())
+  productScope   String   // JSON array stored as string: ["PAYMENTS","OTC"]
+  marketScope    String   // JSON array stored as string: ["KE","TZ"]
+  rmId           String?
+  industry       String?
+  hqClientId     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  rm                User?              @relation("RMClients", fields: [rmId], references: [id])
+  documents         OnboardingDocument[]
+  complianceReviews ComplianceReview[]
+  contracts         Contract[]
+  trades            Trade[]
+  stateLog          ClientStateLog[]
+  signatories       Signatory[]
+  dashboardUsers    DashboardUser[]
+  alerts            Alert[]
+
+  @@map("clients")
+}
+
+// ─── CLIENT STATE LOG ─────────────────────────────────────────────────────────
+
+model ClientStateLog {
+  id          String   @id @default(cuid())
+  clientId    String
+  fromState   String?
+  toState     String
+  triggeredBy String   // HUMAN | AUTOMATION | AI
+  actorId     String?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id])
+  actor  User?  @relation(fields: [actorId], references: [id])
+
+  @@map("client_state_log")
+}
+
+// ─── ONBOARDING DOCUMENTS ─────────────────────────────────────────────────────
+
+model OnboardingDocument {
+  id              String   @id @default(cuid())
+  clientId        String
+  docType         String   // PASSPORT | CERTIFICATE_OF_INCORPORATION | UTILITY_BILL | AML_FORM | OTHER
+  filePath        String?
+  fileName        String?
+  ocrConfidence   Float?   // 0.0 to 1.0
+  extractedData   String?  // JSON string
+  status          String   @default("PENDING") // PENDING | PROCESSING | VALIDATED | EXCEPTION | APPROVED
+  exceptionReason String?
+  reviewerId      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@map("onboarding_documents")
+}
+
+// ─── COMPLIANCE REVIEWS ───────────────────────────────────────────────────────
+
+model ComplianceReview {
+  id               String    @id @default(cuid())
+  clientId         String
+  samsub_applicantId String?
+  samsub_reportUrl  String?
+  status           String    @default("SUBMITTED") // SUBMITTED | PENDING | ISSUES_FOUND | APPROVED | REJECTED
+  issuesSummary    String?
+  reviewerId       String?
+  overrideReason   String?
+  reviewedAt       DateTime?
+  createdAt        DateTime  @default(now())
+
+  client   Client @relation(fields: [clientId], references: [id])
+  reviewer User?  @relation(fields: [reviewerId], references: [id])
+
+  @@map("compliance_reviews")
+}
+
+// ─── CONTRACTS ────────────────────────────────────────────────────────────────
+
+model Contract {
+  id               String   @id @default(cuid())
+  clientId         String
+  type             String   // PAYMENTS | OTC | COMBINED
+  version          Int      @default(1)
+  status           String   @default("DRAFT") // DRAFT | SENT | CLIENT_REVIEW | COMMENTS_RECEIVED | LEGAL_REVIEW | ACCEPTED | DOCSIGN_PENDING | EXECUTED
+  docsignEnvelopeId String?
+  filePath         String?
+  clientComments   String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  client     Client      @relation(fields: [clientId], references: [id])
+  signatories Signatory[]
+
+  @@map("contracts")
+}
+
+// ─── SIGNATORIES ──────────────────────────────────────────────────────────────
+
+model Signatory {
+  id         String @id @default(cuid())
+  clientId   String
+  contractId String?
+  name       String
+  email      String
+  phone      String?
+  type       String // AUTHORIZED_SIGNATORY | AUTHORIZED_USER
+  hasSigned  Boolean @default(false)
+  signedAt   DateTime?
+  createdAt  DateTime @default(now())
+
+  client   Client   @relation(fields: [clientId], references: [id])
+  contract Contract? @relation(fields: [contractId], references: [id])
+
+  @@map("signatories")
+}
+
+// ─── DASHBOARD USERS ──────────────────────────────────────────────────────────
+
+model DashboardUser {
+  id            String   @id @default(cuid())
+  clientId      String
+  name          String
+  email         String
+  phone         String?
+  loginSentAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@map("dashboard_users")
+}
+
+// ─── TRADES ───────────────────────────────────────────────────────────────────
+
+model Trade {
+  id             String   @id @default(cuid())
+  idempotencyKey String   @unique  // SHA256 of client+pair+direction+volume+bookedAt
+  clientId       String
+  currencyPair   String   // e.g. "KES/USD", "TZS/USD", "UGX/EUR"
+  direction      String   // BUY | SELL
+  volume         Float
+  valueUsd       Float?
+  rate           Float
+  marginBps      Float?   // basis points
+  bankAccountId  String?
+  market         String   // KE | TZ | RW | UG | ETH | ZM
+  source         String   @default("PORTAL") // WHATSAPP | PORTAL | API | MANUAL
+  bookedAt       DateTime
+  dayOfWeek      Int      // 0=Sunday, 1=Monday... computed from bookedAt in seed/API
+  dayOfMonth     Int      // 1-31
+  monthOfYear    Int      // 1-12
+  createdAt      DateTime @default(now())
+
+  client      Client       @relation(fields: [clientId], references: [id])
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
+
+  @@map("trades")
+}
+
+// ─── ALERTS ───────────────────────────────────────────────────────────────────
+
+model Alert {
+  id               String    @id @default(cuid())
+  type             String    // SLA_BREACH | MARKET_FLAG | DOCUMENT_EXCEPTION | API_FAILURE
+  entityType       String    // CLIENT | MARKET | PARTNER
+  entityId         String
+  deduplicationKey String    @unique  // SHA256(type+entityId+YYYY-MM-DD)
+  severity         String    // LOW | MEDIUM | HIGH | CRITICAL
+  recipientId      String?
+  channel          String    // SLACK | EMAIL | SMS
+  message          String
+  firedAt          DateTime  @default(now())
+  acknowledgedAt   DateTime?
+  resolvedAt       DateTime?
+
+  recipient User?   @relation(fields: [recipientId], references: [id])
+  client    Client? @relation(fields: [entityId], references: [id], map: "alert_client_fk")
+
+  @@map("alerts")
+}
+
+// ─── MARKET INFRASTRUCTURE ────────────────────────────────────────────────────
+
+model MarketInfrastructure {
+  id                   String    @id @default(cuid())
+  market               String    @unique  // KE | TZ | RW | UG | ETH | ZM
+  setupType            String?   // LOCAL_REGISTRATION | PARTNERSHIP | NON_RESIDENT_ACCOUNT
+  licenseStatus        String?
+  isActive             Boolean   @default(false)
+  bankRelationshipCount Int      @default(0)
+  paymentsCapable      Boolean   @default(false)
+  lastReviewedAt       DateTime?
+  updatedAt            DateTime  @updatedAt
+
+  partners     Partner[]
+  bankAccounts BankAccount[]
+
+  @@map("market_infrastructure")
+}
+
+// ─── PARTNERS ─────────────────────────────────────────────────────────────────
+
+model Partner {
+  id                      String    @id @default(cuid())
+  market                  String
+  name                    String
+  type                    String    // BANK | TELCO | PSP | IMTC
+  apiIntegrationStatus    String    @default("NONE") // NONE | IN_PROGRESS | ACTIVE | INACTIVE
+  noObjectionLetterStatus String    @default("NOT_REQUIRED") // NOT_REQUIRED | PENDING | OBTAINED | EXPIRED
+  noObjectionLetterExpiry DateTime?
+  commercials             String?   // JSON string: {channelName: rate}
+  channels                String?   // JSON string: ["COLLECTION", "PAYOUT"]
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  marketInfrastructure MarketInfrastructure @relation(fields: [market], references: [market])
+  bankAccounts         BankAccount[]
+
+  @@map("partners")
+}
+
+// ─── BANK ACCOUNTS ────────────────────────────────────────────────────────────
+
+model BankAccount {
+  id          String   @id @default(cuid())
+  partnerId   String
+  market      String
+  accountType String   // LOCAL | NON_RESIDENT
+  currency    String   // KES | TZS | RWF | UGX | ETB | ZMW | USD | EUR | GBP | AED
+  accountNumber String?
+  swiftCode   String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  partner              Partner              @relation(fields: [partnerId], references: [id])
+  marketInfrastructure MarketInfrastructure @relation(fields: [market], references: [market])
+  trades               Trade[]
+
+  @@map("bank_accounts")
+}
