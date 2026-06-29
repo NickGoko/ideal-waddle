@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client'
 import { createHash } from 'crypto'
-
-const prisma = new PrismaClient()
+import { prisma } from '../src/lib/prisma'
 
 function sha256(input: string): string {
   return createHash('sha256').update(input).digest('hex')

@@ -117,7 +117,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 ### 4. New dependencies (approved)
 - `@prisma/adapter-libsql@^5.22.0` — matches Prisma 5.22.
-- `@libsql/client@^0.14` — libSQL driver.
+- `@libsql/client@^0.8.1` — libSQL driver. (Adapter 5.22 peer-requires `@libsql/client` <= 0.8.x; 0.14 is incompatible.)
 
 ## One-time Setup (operator-run)
 
