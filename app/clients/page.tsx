@@ -1,5 +1,5 @@
 import { ClientKanban } from '@/components/ClientKanban'
-import { cookies } from 'next/headers'
+import { prisma } from '@/src/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,19 +13,24 @@ interface ClientRecord {
   productScope: string
 }
 
+// Query the database directly in this Server Component. Previously this fetched
+// its own /api/clients route over HTTP using an absolute base URL, which broke on
+// Vercel (no localhost server in a serverless function). An in-process Prisma
+// query is faster and host-independent.
 async function getClients(): Promise<ClientRecord[]> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-  const response = await fetch(`${baseUrl}/api/clients`, {
-    cache: 'no-store',
-    headers: { cookie: cookies().toString() },
+  const clients = await prisma.client.findMany({
+    orderBy: { createdAt: 'asc' },
   })
 
-  if (!response.ok) {
-    throw new Error(`Unable to load clients: ${response.status}`)
-  }
-
-  const payload = (await response.json()) as { clients: ClientRecord[] }
-  return payload.clients
+  return clients.map((client) => ({
+    id: client.id,
+    name: client.name,
+    type: client.type,
+    currentState: client.currentState,
+    stateEnteredAt: client.stateEnteredAt.toISOString(),
+    marketScope: client.marketScope,
+    productScope: client.productScope,
+  }))
 }
 
 export default async function ClientsPage() {
